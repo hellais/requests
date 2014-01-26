@@ -68,7 +68,7 @@ class PoolManager(RequestMethods):
         self.pools = RecentlyUsedContainer(num_pools,
                                            dispose_func=lambda p: p.close())
 
-    def _new_pool(self, scheme, host, port):
+    def _new_pool(self, scheme, host, port, source_address):
         """
         Create a new :class:`ConnectionPool` based on host, port and scheme.
 
@@ -82,8 +82,8 @@ class PoolManager(RequestMethods):
             kwargs = self.connection_pool_kw.copy()
             for kw in SSL_KEYWORDS:
                 kwargs.pop(kw, None)
-
-        return pool_cls(host, port, **kwargs)
+        
+        return pool_cls(host, port, source_address=source_address, **kwargs)
 
     def clear(self):
         """
@@ -94,7 +94,7 @@ class PoolManager(RequestMethods):
         """
         self.pools.clear()
 
-    def connection_from_host(self, host, port=None, scheme='http'):
+    def connection_from_host(self, host, port=None, scheme='http', source_address=None):
         """
         Get a :class:`ConnectionPool` based on the host, port, and scheme.
 
@@ -116,11 +116,11 @@ class PoolManager(RequestMethods):
                 return pool
 
             # Make a fresh ConnectionPool of the desired type
-            pool = self._new_pool(scheme, host, port)
+            pool = self._new_pool(scheme, host, port, source_address)
             self.pools[pool_key] = pool
         return pool
 
-    def connection_from_url(self, url):
+    def connection_from_url(self, url, source_address=None):
         """
         Similar to :func:`urllib3.connectionpool.connection_from_url` but
         doesn't pass any additional parameters to the
@@ -130,9 +130,9 @@ class PoolManager(RequestMethods):
         constructor.
         """
         u = parse_url(url)
-        return self.connection_from_host(u.host, port=u.port, scheme=u.scheme)
+        return self.connection_from_host(u.host, port=u.port, scheme=u.scheme, source_address=source_address)
 
-    def urlopen(self, method, url, redirect=True, **kw):
+    def urlopen(self, method, url, redirect=True, source_address=None, **kw):
         """
         Same as :meth:`urllib3.connectionpool.HTTPConnectionPool.urlopen`
         with custom cross-host redirect logic and only sends the request-uri
@@ -142,7 +142,7 @@ class PoolManager(RequestMethods):
         :class:`urllib3.connectionpool.ConnectionPool` can be chosen for it.
         """
         u = parse_url(url)
-        conn = self.connection_from_host(u.host, port=u.port, scheme=u.scheme)
+        conn = self.connection_from_host(u.host, port=u.port, scheme=u.scheme, source_address=source_address)
 
         kw['assert_same_host'] = False
         kw['redirect'] = False
@@ -217,13 +217,13 @@ class ProxyManager(PoolManager):
         super(ProxyManager, self).__init__(
             num_pools, headers, **connection_pool_kw)
 
-    def connection_from_host(self, host, port=None, scheme='http'):
+    def connection_from_host(self, host, port=None, scheme='http', source_address=None):
         if scheme == "https":
             return super(ProxyManager, self).connection_from_host(
-                host, port, scheme)
+                host, port, scheme, source_address)
 
         return super(ProxyManager, self).connection_from_host(
-            self.proxy.host, self.proxy.port, self.proxy.scheme)
+            self.proxy.host, self.proxy.port, self.proxy.scheme, source_address)
 
     def _set_proxy_headers(self, url, headers=None):
         """

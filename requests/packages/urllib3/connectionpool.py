@@ -63,12 +63,14 @@ class ConnectionPool(object):
     scheme = None
     QueueCls = LifoQueue
 
-    def __init__(self, host, port=None):
+    def __init__(self, host, port=None, source_address=None):
         # httplib doesn't like it when we include brackets in ipv6 addresses
         host = host.strip('[]')
 
         self.host = host
         self.port = port
+
+        self.source_address = source_address
 
     def __str__(self):
         return '%s(host=%r, port=%r)' % (type(self).__name__,
@@ -135,8 +137,8 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
 
     def __init__(self, host, port=None, strict=False,
                  timeout=Timeout.DEFAULT_TIMEOUT, maxsize=1, block=False,
-                 headers=None, _proxy=None, _proxy_headers=None):
-        ConnectionPool.__init__(self, host, port)
+                 headers=None, source_address=None, _proxy=None, _proxy_headers=None):
+        ConnectionPool.__init__(self, host, port, source_address)
         RequestMethods.__init__(self, headers)
 
         self.strict = strict
@@ -176,6 +178,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
 
         conn = self.ConnectionCls(host=self.host, port=self.port,
                                   timeout=self.timeout.connect_timeout,
+                                  source_address=self.source_address,
                                   **extra_params)
         if self.proxy is not None:
             # Enable Nagle's algorithm for proxies, to avoid packet
@@ -582,14 +585,15 @@ class HTTPSConnectionPool(HTTPConnectionPool):
 
     def __init__(self, host, port=None,
                  strict=False, timeout=None, maxsize=1,
-                 block=False, headers=None,
+                 block=False, headers=None, source_address=None,
                  _proxy=None, _proxy_headers=None,
                  key_file=None, cert_file=None, cert_reqs=None,
                  ca_certs=None, ssl_version=None,
                  assert_hostname=None, assert_fingerprint=None):
 
         HTTPConnectionPool.__init__(self, host, port, strict, timeout, maxsize,
-                                    block, headers, _proxy, _proxy_headers)
+                                    block, headers, source_address, _proxy,
+                                    _proxy_headers)
         self.key_file = key_file
         self.cert_file = cert_file
         self.cert_reqs = cert_reqs
@@ -651,6 +655,7 @@ class HTTPSConnectionPool(HTTPConnectionPool):
 
         conn = self.ConnectionCls(host=actual_host, port=actual_port,
                                   timeout=self.timeout.connect_timeout,
+                                  source_address=self.source_address,
                                   **extra_params)
         if self.proxy is not None:
             # Enable Nagle's algorithm for proxies, to avoid packet
