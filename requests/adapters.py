@@ -25,6 +25,7 @@ from .packages.urllib3.exceptions import HTTPError as _HTTPError
 from .packages.urllib3.exceptions import ProxyError as _ProxyError
 from .cookies import extract_cookies_to_jar
 from .exceptions import ConnectionError, Timeout, SSLError, ProxyError
+from .exceptions import SourceAddressUnsupportedError
 from .auth import _basic_auth_str
 
 DEFAULT_POOLBLOCK = False
@@ -191,7 +192,7 @@ class HTTPAdapter(BaseAdapter):
 
         return response
 
-    def get_connection(self, url, proxies=None):
+    def get_connection(self, url, proxies=None, source_address=None):
         """Returns a urllib3 connection for the given URL. This should not be
         called from user code, and is only exposed for use when subclassing the
         :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
@@ -213,13 +214,23 @@ class HTTPAdapter(BaseAdapter):
                                                 num_pools=self._pool_connections,
                                                 maxsize=self._pool_maxsize,
                                                 block=self._pool_block)
-
+            if source_address:
+                try:
+                    conn = self.proxy_manager[proxy].connection_from_url(url, source_address)
+                except TypeError: # The version of urllib3 does not support source_address
+                    raise SourceAddressUnsupportedError
             conn = self.proxy_manager[proxy].connection_from_url(url)
         else:
             # Only scheme should be lower case
             parsed = urlparse(url)
             url = parsed.geturl()
-            conn = self.poolmanager.connection_from_url(url)
+            if source_address:
+                try:
+                    conn = self.poolmanager.connection_from_url(url, source_address)
+                except TypeError: # The version of urllib3 does not support source_address
+                    raise SourceAddressUnsupportedError
+            else:
+                conn = self.poolmanager.connection_from_url(url)
 
         return conn
 
@@ -291,7 +302,7 @@ class HTTPAdapter(BaseAdapter):
 
         return headers
 
-    def send(self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None):
+    def send(self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None, source_address=None):
         """Sends PreparedRequest object. Returns Response object.
 
         :param request: The :class:`PreparedRequest <PreparedRequest>` being sent.
@@ -302,7 +313,7 @@ class HTTPAdapter(BaseAdapter):
         :param proxies: (optional) The proxies dictionary to apply to the request.
         """
 
-        conn = self.get_connection(request.url, proxies)
+        conn = self.get_connection(request.url, proxies, source_address)
 
         self.cert_verify(conn, request.url, verify, cert)
         url = self.request_url(request, proxies)

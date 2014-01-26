@@ -301,7 +301,8 @@ class Session(SessionRedirectMixin):
         hooks=None,
         stream=None,
         verify=None,
-        cert=None):
+        cert=None,
+        source_address=None):
         """Constructs a :class:`Request <Request>`, prepares it and sends it.
         Returns :class:`Response <Response>` object.
 
@@ -330,6 +331,8 @@ class Session(SessionRedirectMixin):
             A CA_BUNDLE path can also be provided.
         :param cert: (optional) if String, path to ssl client cert file (.pem).
             If Tuple, ('cert', 'key') pair.
+        :param source_address: (optional) a tuple of (host, port) for the socket
+            to bind as a source address before making the connection.
         """
 
         method = builtin_str(method)
@@ -379,6 +382,7 @@ class Session(SessionRedirectMixin):
             'cert': cert,
             'proxies': proxies,
             'allow_redirects': allow_redirects,
+            'source_address': source_address
         }
         resp = self.send(prep, **send_kwargs)
 

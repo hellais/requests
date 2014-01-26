@@ -66,3 +66,7 @@ class ChunkedEncodingError(RequestException):
 
 class ContentDecodingError(RequestException, BaseHTTPError):
     """Failed to decode response content"""
+
+
+class SourceAddressUnsupportedError(RequestException):
+    """Setting source address is not supported by the installed version of urllib3."""

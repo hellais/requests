@@ -225,6 +225,11 @@ class RequestsTestCase(unittest.TestCase):
         r = requests.get(httpbin('user-agent'), headers=heads)
         assert heads['user-agent'] in r.text
 
+    def test_source_address(self):
+        s = requests.session()
+        with pytest.raises(requests.exceptions.ConnectionError):
+            r = s.get(httpbin('get'), source_address=('127.0.0.1', 0))
+
     def test_HTTP_200_OK_HEAD(self):
         r = requests.head(httpbin('get'))
         assert r.status_code == 200
